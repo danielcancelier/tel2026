@@ -1,0 +1,96 @@
+*************************** 1. row ***************************
+       Table: atualizacoes
+Create Table: CREATE TABLE `atualizacoes` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `prefixo` char(4) NOT NULL,
+  `subordinada` char(2) NOT NULL,
+  `cod_status` int DEFAULT NULL,
+  `cod_produto` int DEFAULT NULL,
+  `quantidade` int DEFAULT NULL,
+  `data_status` date DEFAULT NULL,
+  `descricao` text,
+  PRIMARY KEY (`id`),
+  KEY `ix_atualizacoes_dep` (`prefixo`,`subordinada`),
+  KEY `ix_atualizacoes_status` (`cod_status`),
+  KEY `ix_atualizacoes_data` (`data_status`),
+  KEY `ix_atualizacoes_prod` (`cod_produto`),
+  CONSTRAINT `fk_atualizacoes_dependencia` FOREIGN KEY (`prefixo`, `subordinada`) REFERENCES `dependencia` (`prefixo`, `subordinada`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_atualizacoes_produtos` FOREIGN KEY (`cod_produto`) REFERENCES `produtos` (`codigo`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_atualizacoes_status` FOREIGN KEY (`cod_status`) REFERENCES `status` (`codigo`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: bbts
+Create Table: CREATE TABLE `bbts` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `prefixo` char(4) NOT NULL,
+  `subordinada` char(2) NOT NULL,
+  `sgt_chamado` varchar(40) DEFAULT NULL,
+  `data_chamado` date DEFAULT NULL,
+  `descricao_os` text,
+  `sgt_quant_ramais` int DEFAULT NULL,
+  `email_cat_bbts` varchar(254) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_bbts_dep` (`prefixo`,`subordinada`),
+  KEY `ix_bbts_chamado` (`sgt_chamado`),
+  KEY `ix_bbts_data` (`data_chamado`),
+  CONSTRAINT `fk_bbts_dependencia` FOREIGN KEY (`prefixo`, `subordinada`) REFERENCES `dependencia` (`prefixo`, `subordinada`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: comunicacao
+Create Table: CREATE TABLE `comunicacao` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `prefixo` char(4) NOT NULL,
+  `subordinada` char(2) NOT NULL,
+  `data_envio` date DEFAULT NULL,
+  `data_resposta` date DEFAULT NULL,
+  `resposta` text,
+  PRIMARY KEY (`id`),
+  KEY `ix_comunicacao_dep` (`prefixo`,`subordinada`),
+  KEY `ix_comunicacao_datas` (`data_envio`,`data_resposta`),
+  CONSTRAINT `fk_comunicacao_dependencia` FOREIGN KEY (`prefixo`, `subordinada`) REFERENCES `dependencia` (`prefixo`, `subordinada`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: dependencia
+Create Table: CREATE TABLE `dependencia` (
+  `prefixo` char(4) NOT NULL,
+  `subordinada` char(2) NOT NULL,
+  `nome` varchar(120) DEFAULT NULL,
+  `uor` int DEFAULT NULL,
+  `cidade` varchar(30) DEFAULT NULL,
+  `uf` varchar(2) DEFAULT NULL,
+  `condominio` tinyint(1) DEFAULT NULL,
+  `cod_condominio` varchar(32) DEFAULT NULL,
+  `linha_necessaria` tinyint(1) DEFAULT NULL,
+  `tipo_ramal` varchar(20) DEFAULT NULL,
+  `contato_matricula` char(8) DEFAULT NULL,
+  `contato_nome` varchar(120) DEFAULT NULL,
+  `contato_obs` varchar(255) DEFAULT NULL,
+  `tem_central_pvv` tinyint(1) DEFAULT NULL,
+  `ramais_controle` int DEFAULT NULL,
+  `ramais_manter` int DEFAULT NULL,
+  `pendencias` text,
+  `observacoes` text,
+  `cod_status` int DEFAULT NULL,
+  `lote` int DEFAULT NULL,
+  PRIMARY KEY (`prefixo`,`subordinada`),
+  KEY `ix_dependencia_status` (`cod_status`),
+  CONSTRAINT `fk_dependencia_status` FOREIGN KEY (`cod_status`) REFERENCES `status` (`codigo`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: produtos
+Create Table: CREATE TABLE `produtos` (
+  `codigo` int NOT NULL,
+  `descricao` varchar(120) DEFAULT NULL,
+  `fornecedor` varchar(120) DEFAULT NULL,
+  PRIMARY KEY (`codigo`),
+  UNIQUE KEY `uq_produtos_descricao_fornec` (`descricao`,`fornecedor`),
+  KEY `ix_produtos_desc` (`descricao`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: status
+Create Table: CREATE TABLE `status` (
+  `codigo` int NOT NULL,
+  `descricao` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`codigo`),
+  UNIQUE KEY `uq_status_descricao` (`descricao`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci

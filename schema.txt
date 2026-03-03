@@ -1,0 +1,200 @@
+-- Schema
+CREATE DATABASE IF NOT EXISTS telefonia
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_0900_ai_ci;
+USE telefonia;
+
+-- ==========================
+-- 1) Tabela de Status
+-- ==========================
+CREATE TABLE status (
+  codigo        INT           NOT NULL,
+  descricao     VARCHAR(100)  NULL,
+  CONSTRAINT pk_status PRIMARY KEY (codigo),
+  CONSTRAINT uq_status_descricao UNIQUE (descricao)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ==========================
+-- 2) Tabela de Dependências
+-- ==========================
+CREATE TABLE dependencia (
+  prefixo            CHAR(4)       NOT NULL,
+  subordinada        CHAR(2)       NOT NULL,
+  nome 				 VARCHAR(120)  NULL,
+  uor                INT           NULL,
+  cidade			 VARCHAR(30)   NULL,
+  uf 				 VARCHAR(2)    NULL,
+  condominio         BOOLEAN       NULL,
+  cod_condominio     VARCHAR(32)   NULL,
+  linha_necessaria   BOOLEAN       NULL,
+  tipo_ramal         VARCHAR(20)   NULL,
+  contato_matricula  CHAR(8)       NULL,
+  contato_nome       VARCHAR(120)  NULL,
+  contato_obs        VARCHAR(255)  NULL,
+  tem_central_pvv    BOOLEAN       NULL,
+  ramais_controle    INT           NULL,
+  ramais_manter      INT           NULL,
+  pendencias         TEXT          NULL,
+  observacoes        TEXT          NULL,
+  cod_status         INT           NULL,
+  lote               INT           NULL,
+
+  CONSTRAINT pk_dependencia PRIMARY KEY (prefixo, subordinada),
+
+  CONSTRAINT fk_dependencia_status
+    FOREIGN KEY (cod_status) REFERENCES status (codigo)
+      ON UPDATE CASCADE
+      ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE INDEX ix_dependencia_status ON dependencia (cod_status);
+
+-- ==========================
+-- 3) Tabela de Comunicação
+-- ==========================
+CREATE TABLE comunicacao (
+  id               BIGINT       NOT NULL AUTO_INCREMENT,
+  prefixo          CHAR(4)      NOT NULL,
+  subordinada      CHAR(2)      NOT NULL,
+  data_envio       DATE         NULL,
+  data_resposta    DATE         NULL,
+  resposta         TEXT         NULL,
+
+  CONSTRAINT pk_comunicacao PRIMARY KEY (id),
+
+  CONSTRAINT fk_comunicacao_dependencia
+    FOREIGN KEY (prefixo, subordinada) REFERENCES dependencia (prefixo, subordinada)
+      ON UPDATE CASCADE
+      ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE INDEX ix_comunicacao_dep ON comunicacao (prefixo, subordinada);
+CREATE INDEX ix_comunicacao_datas ON comunicacao (data_envio, data_resposta);
+
+-- ==========================
+-- 4) Tabela de BBTS
+-- ==========================
+CREATE TABLE bbts (
+  id                 BIGINT       NOT NULL AUTO_INCREMENT,
+  prefixo            CHAR(4)      NOT NULL,
+  subordinada        CHAR(2)      NOT NULL,
+  sgt_chamado        VARCHAR(40)  NULL,
+  data_chamado       DATE         NULL,
+  descricao_os       TEXT         NULL,
+  sgt_quant_ramais   INT          NULL,
+  email_cat_bbts     VARCHAR(254) NULL,
+
+  CONSTRAINT pk_bbts PRIMARY KEY (id),
+
+  CONSTRAINT fk_bbts_dependencia
+    FOREIGN KEY (prefixo, subordinada) REFERENCES dependencia (prefixo, subordinada)
+      ON UPDATE CASCADE
+      ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE INDEX ix_bbts_dep ON bbts (prefixo, subordinada);
+CREATE INDEX ix_bbts_chamado ON bbts (sgt_chamado);
+CREATE INDEX ix_bbts_data ON bbts (data_chamado);
+
+-- ==========================
+-- 5) Tabela de Atualizações (histórico de status)
+-- ==========================
+CREATE TABLE atualizacoes (
+  id            BIGINT       NOT NULL AUTO_INCREMENT,
+  prefixo       CHAR(4)      NOT NULL,
+  subordinada   CHAR(2)      NOT NULL,
+  cod_status    INT          NULL,
+  data_status   DATE         NULL,
+  descricao     TEXT         NULL,
+
+  CONSTRAINT pk_atualizacoes PRIMARY KEY (id),
+
+  CONSTRAINT fk_atualizacoes_dependencia
+    FOREIGN KEY (prefixo, subordinada) REFERENCES dependencia (prefixo, subordinada)
+      ON UPDATE CASCADE
+      ON DELETE CASCADE,
+
+  CONSTRAINT fk_atualizacoes_status
+    FOREIGN KEY (cod_status) REFERENCES status (codigo)
+      ON UPDATE CASCADE
+      ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE INDEX ix_atualizacoes_dep ON atualizacoes (prefixo, subordinada);
+CREATE INDEX ix_atualizacoes_status ON atualizacoes (cod_status);
+CREATE INDEX ix_atualizacoes_data ON atualizacoes (data_status);
+
+-- ==========================
+-- 6) Triggers: sincronizar dependencia.cod_status com o último status
+--    Critério: considera primeiro registros com data_status não nula,
+--              depois maior data_status, depois maior id (desempate).
+-- ==========================
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_sync_status_dependencia (IN p_prefixo CHAR(4), IN p_subordinada CHAR(2))
+BEGIN
+  DECLARE v_cod_status INT;
+
+  SELECT a.cod_status
+    INTO v_cod_status
+    FROM atualizacoes a
+   WHERE a.prefixo = p_prefixo
+     AND a.subordinada = p_subordinada
+   ORDER BY (a.data_status IS NOT NULL) DESC, a.data_status DESC, a.id DESC
+   LIMIT 1;
+
+  UPDATE dependencia d
+     SET d.cod_status = v_cod_status
+   WHERE d.prefixo = p_prefixo
+     AND d.subordinada = p_subordinada;
+END$$
+
+CREATE TRIGGER trg_atu_ai
+AFTER INSERT ON atualizacoes
+FOR EACH ROW
+BEGIN
+  CALL sp_sync_status_dependencia(NEW.prefixo, NEW.subordinada);
+END$$
+
+CREATE TRIGGER trg_atu_au
+AFTER UPDATE ON atualizacoes
+FOR EACH ROW
+BEGIN
+  CALL sp_sync_status_dependencia(NEW.prefixo, NEW.subordinada);
+
+  IF (NEW.prefixo <> OLD.prefixo OR NEW.subordinada <> OLD.subordinada) THEN
+    CALL sp_sync_status_dependencia(OLD.prefixo, OLD.subordinada);
+  END IF;
+END$$
+
+CREATE TRIGGER trg_atu_ad
+AFTER DELETE ON atualizacoes
+FOR EACH ROW
+BEGIN
+  CALL sp_sync_status_dependencia(OLD.prefixo, OLD.subordinada);
+END$$
+
+DELIMITER ;
+
+-- ==========================
+-- 7) Semeadura opcional
+-- ==========================
+INSERT INTO status (codigo, descricao) VALUES
+  (1, 'Pendente'),
+  (2, 'Em andamento'),
+  (3, 'Concluído'),
+  (4, 'Aguardando terceiros')
+ON DUPLICATE KEY UPDATE descricao = VALUES(descricao);
+
+--ALTER TABLE dependencia
+--ADD COLUMN nome VARCHAR(120) NULL
+--AFTER subordinada;
+
+--ALTER TABLE dependencia
+--ADD COLUMN cidade VARCHAR(30) NULL
+--AFTER uor;
+
+--ALTER TABLE dependencia
+--ADD COLUMN uf VARCHAR(2) NULL
+--AFTER cidade;

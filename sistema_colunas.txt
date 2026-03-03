@@ -1,0 +1,44 @@
+## dependencia ##
+prefixo: string 4
+subordinada: string 2
+uor: numeric
+condominio: true/false
+cod_condominio: string
+linha_necessaria: true/false
+tipo_ramal: ddr/unico/interno
+contato_matricula: string
+contato_nome: string
+contato_obs: string
+tem_central_pvv: true/false
+ramais_controle: numeric
+ramais_manter: numeric
+pendencias: string
+observacoes: string
+cod_status: tabela status
+
+## status ##
+codigo: numeric
+descricao: string
+
+## comunicacao ##
+prefixo: string 4
+subordinada: string 2
+data_envio: date
+data_resposta: date
+resposta: string
+
+## bbts ##
+prefixo: string 4
+subordinada: string 2
+sgt_chamado: string
+data_chamado: date
+descricao_os: string
+sgt_quant_ramais: numeric
+email_cat_bbts: string
+
+## atualizações ##
+prefixo: string 4
+subordinada: string 2
+cod_status: tabela status
+data_status: date
+descricao: string 
