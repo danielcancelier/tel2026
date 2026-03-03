@@ -1,0 +1,217 @@
+import streamlit as st
+import pandas as pd
+from db import fetch_all, fetch_one, execute
+from utils import text_input_nullable, number_input_nullable
+
+st.set_page_config(page_title="Dependências", page_icon="📌", layout="wide")
+st.title("📌 Dependências")
+
+# ------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------
+def load_dependencia(prefixo: str, subordinada: str):
+    sql = """
+        SELECT prefixo, subordinada, nome, uor, condominio, cod_condominio, linha_necessaria,
+               contato_matricula, contato_nome, contato_obs, tem_central_pvv,
+               ramais_controle, ramais_manter, pendencias, observacoes, cod_status, lote
+        FROM dependencia
+        WHERE prefixo=%s AND subordinada=%s
+    """
+    return fetch_one(sql, (prefixo, subordinada))
+
+def save_dependencia(data: dict, is_update: bool):
+    cols = [
+        'nome',
+        'uor','condominio','cod_condominio','linha_necessaria',
+        'contato_matricula','contato_nome','contato_obs','tem_central_pvv',
+        'ramais_controle','ramais_manter','pendencias','observacoes','cod_status','lote'
+    ]
+    if is_update:
+        sets = ", ".join([f"{c}=%s" for c in cols])
+        sql = f"UPDATE dependencia SET {sets} WHERE prefixo=%s AND subordinada=%s"
+        params = [data.get(c) for c in cols] + [data['prefixo'], data['subordinada']]
+        execute(sql, tuple(params))
+    else:
+        sql = f"""
+            INSERT INTO dependencia
+            (prefixo, subordinada, {', '.join(cols)})
+            VALUES ({', '.join(['%s']*(2+len(cols)))})
+        """
+        params = [data['prefixo'], data['subordinada']] + [data.get(c) for c in cols]
+        execute(sql, tuple(params))
+
+def delete_dependencia(prefixo: str, subordinada: str):
+    execute("DELETE FROM dependencia WHERE prefixo=%s AND subordinada=%s", (prefixo, subordinada))
+
+# ------------------------------------------------------------
+# Status (selectbox) - Ordenado por CÓDIGO
+# ------------------------------------------------------------
+# Carrega lista de status (codigo, descricao) ORDENADO por codigo
+_status_rows = fetch_all("SELECT codigo, descricao FROM status ORDER BY codigo")
+# Mapeia como strings para facilitar a composição "codigo - descricao" no select
+_status_dict = {str(r['codigo']): r['descricao'] for r in _status_rows}
+_lista_status = ["(vazio)"] + [f"{codigo} - {_status_dict[codigo]}" for codigo in _status_dict.keys()]
+
+# ------------------------------------------------------------
+# Tabs
+# ------------------------------------------------------------
+aba_listar, aba_editar, aba_importar = st.tabs(["📋 Listar", "✏️ Incluir/Editar", "📥 Importar/Exportar"])
+
+with aba_listar:
+    with st.expander("Filtros", expanded=True):
+        f_prefixo = st.text_input("Prefixo (4)", max_chars=4, key="dep_f_prefixo")
+        f_sub = st.text_input("Subordinada (2)", max_chars=2, key="dep_f_sub")
+        f_lote = st.text_input("Lote", max_chars=10, key="dep_f_lote")
+
+        sql = """
+            SELECT prefixo, subordinada, nome, uor, cod_condominio,
+                   ramais_controle, ramais_manter, cod_status, lote
+            FROM dependencia
+            WHERE 1=1
+        """
+        params = []
+        if f_prefixo:
+            sql += " AND prefixo=%s"; params.append(f_prefixo)
+        if f_sub:
+            sql += " AND subordinada=%s"; params.append(f_sub)
+        if f_lote:
+            sql += " AND lote=%s"; params.append(int(f_lote))
+        sql += " ORDER BY prefixo, subordinada"
+
+        rows = fetch_all(sql, tuple(params))
+    st.dataframe(pd.DataFrame(rows))
+
+with aba_editar:
+    st.subheader("Selecionar/Preencher Chave")
+    c1, c2 = st.columns(2)
+    with c1:
+        prefixo = st.text_input("Prefixo (4)", max_chars=4, key="dep_ed_prefixo")
+    with c2:
+        subordinada = st.text_input("Subordinada (2)", max_chars=2, key="dep_ed_subordinada")
+
+    data = None
+    if prefixo and subordinada:
+        data = load_dependencia(prefixo, subordinada)
+
+    st.markdown("---")
+    st.subheader("Dados")
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        uor = number_input_nullable("UOR", key="dep_uor", value=data.get('uor') if data else None)
+        cod_condominio = text_input_nullable("Código do condomínio", key="dep_cod_condominio",
+                                             value=data.get('cod_condominio') if data else None)
+        contato_matricula = text_input_nullable("Contato - Matrícula (8)", key="dep_contato_matricula",
+                                                value=data.get('contato_matricula') if data else None, max_chars=8)
+        ramais_controle = number_input_nullable("Ramais - Controle", key="dep_ramais_controle",
+                                                value=data.get('ramais_controle') if data else None)
+        # ---------- Selectbox de Status (ordenado por código) ----------
+        # Calcula índice inicial baseado no cod_status do registro (se houver)
+        if data and data.get('cod_status'):
+            _current = str(data.get('cod_status'))
+            # Monta string "codigo - descricao" correspondente
+            _target = f"{_current} - {_status_dict.get(_current, '')}"
+            # Busca índice onde começa com o código atual; se não achar, cai para 0
+            try:
+                _index_status = next(i for i, v in enumerate(_lista_status) if v.startswith(_current))
+            except StopIteration:
+                _index_status = 0
+        else:
+            _index_status = 0
+
+        sel_status = st.selectbox(
+            "Status",
+            _lista_status,
+            index=_index_status,
+            key="dep_status"
+        )
+        cod_status = None if sel_status == "(vazio)" else int(sel_status.split(" - ")[0])
+
+        lote = number_input_nullable("Lote", key="dep_lote", value=data.get('lote') if data else None)
+
+    with c2:
+        condominio_opt = st.selectbox(
+            "Condomínio?",
+            ["(vazio)", "Sim", "Não"],
+            index=0 if not data or data.get('condominio') is None else (1 if data.get('condominio') else 2),
+            key="dep_condominio"
+        )
+        condominio = None if condominio_opt == "(vazio)" else (True if condominio_opt == "Sim" else False)
+
+        linha_necessaria_opt = st.selectbox(
+            "Linha necessária?",
+            ["(vazio)", "Sim", "Não"],
+            index=0 if not data or data.get('linha_necessaria') is None else (1 if data.get('linha_necessaria') else 2),
+            key="dep_linha_necessaria"
+        )
+        linha_necessaria = None if linha_necessaria_opt == "(vazio)" else (True if linha_necessaria_opt == "Sim" else False)
+
+        tem_central_pvv_opt = st.selectbox(
+            "Tem central PVV?",
+            ["(vazio)", "Sim", "Não"],
+            index=0 if not data or data.get('tem_central_pvv') is None else (1 if data.get('tem_central_pvv') else 2),
+            key="dep_tem_central_pvv"
+        )
+        tem_central_pvv = None if tem_central_pvv_opt == "(vazio)" else (True if tem_central_pvv_opt == "Sim" else False)
+
+        ramais_manter = number_input_nullable("Ramais - Manter", key="dep_ramais_manter",
+                                              value=data.get('ramais_manter') if data else None)
+
+    with c3:
+        # --------- Campo NOME (novo no CRUD) ---------
+        nome = text_input_nullable(
+            "Nome da Dependência",
+            key="dep_nome",
+            value=data.get('nome') if data else None
+        )
+
+        contato_nome = text_input_nullable("Contato - Nome", key="dep_contato_nome",
+                                           value=data.get('contato_nome') if data else None)
+        contato_obs = text_input_nullable("Contato - Observações", key="dep_contato_obs",
+                                          value=data.get('contato_obs') if data else None)
+
+        pendencias = st.text_area("Pendências",
+                                  value=data.get('pendencias') if data and data.get('pendencias') else "",
+                                  key="dep_pendencias", height=120)
+        observacoes = st.text_area("Observações",
+                                   value=data.get('observacoes') if data and data.get('observacoes') else "",
+                                   key="dep_observacoes", height=120)
+        pendencias = None if pendencias.strip() == "" else pendencias
+        observacoes = None if observacoes.strip() == "" else observacoes
+
+    colA, colB, colC = st.columns(3)
+    with colA:
+        if st.button("💾 Salvar/Atualizar", type="primary", key="dep_bt_salvar"):
+            if not prefixo or not subordinada:
+                st.error("Informe prefixo e subordinada.")
+            else:
+                payload = {
+                    'prefixo': prefixo, 'subordinada': subordinada,
+                    'nome': nome,
+                    'uor': uor, 'condominio': condominio, 'cod_condominio': cod_condominio,
+                    'linha_necessaria': linha_necessaria,
+                    'contato_matricula': contato_matricula, 'contato_nome': contato_nome,
+                    'contato_obs': contato_obs, 'tem_central_pvv': tem_central_pvv,
+                    'ramais_controle': ramais_controle, 'ramais_manter': ramais_manter,
+                    'pendencias': pendencias, 'observacoes': observacoes,
+                    'cod_status': cod_status, 'lote': lote,
+                }
+                exists = load_dependencia(prefixo, subordinada) is not None
+                save_dependencia(payload, is_update=exists)
+                st.success("Registro salvo.")
+
+    with colB:
+        if st.button("🗑️ Excluir", key="dep_bt_excluir"):
+            if not prefixo or not subordinada:
+                st.error("Informe prefixo e subordinada.")
+            else:
+                delete_dependencia(prefixo, subordinada)
+                st.success("Registro excluído.")
+
+    with colC:
+        if st.button("🔄 Recarregar", key="dep_bt_recarregar"):
+            st.experimental_rerun()
+
+with aba_importar:
+    st.write("Exportar CSV do resultado do filtro acima e importar CSV em lote (prefixo, subordinada, ...). Em breve.")
