@@ -5,14 +5,14 @@ from datetime import date, datetime
 from typing import Optional
 from db import fetch_all, execute
 
-st.set_page_config(page_title="BBTS", page_icon="🛠️", layout="wide")
-st.title("🛠️ BBTS")
+st.set_page_config(page_title="Comunicação", page_icon="✉️", layout="wide")
+st.title("✉️ Comunicação")
 
 # ---------------------- Estado do modal (busca) ----------------------
-if 'bbts_open_modal' not in st.session_state:
-    st.session_state['bbts_open_modal'] = False
+if 'com_open_modal' not in st.session_state:
+    st.session_state['com_open_modal'] = False
 # Ao entrar na página, garanta fechado; só a lupa abre
-st.session_state['bbts_open_modal'] = False
+st.session_state['com_open_modal'] = False
 
 # ---------------------- Utilitários de data ----------------------
 def date_to_iso(d: Optional[date]) -> Optional[str]:
@@ -61,7 +61,7 @@ def nome_da_dependencia(prefixo: str, subordinada: str):
 
 # ---- helpers para estado do modal ----
 def _fechar_modal():
-    st.session_state['bbts_open_modal'] = False
+    st.session_state['com_open_modal'] = False
 
 # -------------------------------- Modal de busca --------------------------------
 @st.dialog("🔍 Buscar dependência", width="large")
@@ -70,7 +70,7 @@ def abrir_busca_dependencia():
     q = st.text_input(
         "Pesquisar por Prefixo, Subordinada ou Nome",
         placeholder="Ex.: 0080, 00, PETROPOLIS",
-        key="bbts_inc_q",
+        key="com_inc_q",
     )
     colf1, colf2 = st.columns([1, 1])
     with colf1:
@@ -100,24 +100,24 @@ def abrir_busca_dependencia():
         if st.button("✅ Selecionar e aplicar", use_container_width=True):
             if sel and sel in display_map:
                 pfx, sub = display_map[sel]
-                st.session_state['bbts_inc_prefixo'] = pfx
-                st.session_state['bbts_inc_sub'] = sub
-                st.session_state['bbts_open_modal'] = False
+                st.session_state['com_inc_prefixo'] = pfx
+                st.session_state['com_inc_sub'] = sub
+                st.session_state['com_open_modal'] = False
                 st.toast(f"Selecionado: {pfx}-{sub}", icon="🔎")
                 st.rerun()
     with c2:
         if st.button("✖️ Fechar", use_container_width=True):
-            st.session_state['bbts_open_modal'] = False
+            st.session_state['com_open_modal'] = False
             st.rerun()
 
 # ---- confirmação de exclusão ----
 @st.dialog("🗑️ Confirmar exclusão", width="large")
 def abrir_confirm_exclusao():
-    ids = st.session_state.get('bbts_del_ids', [])
+    ids = st.session_state.get('com_del_ids', [])
     if not ids:
         st.info("Nenhum registro selecionado.")
         if st.button("Fechar", use_container_width=True):
-            st.session_state['bbts_open_confirm'] = False
+            st.session_state['com_open_confirm'] = False
             st.rerun()
         return
 
@@ -129,17 +129,17 @@ def abrir_confirm_exclusao():
         if st.button("✅ Confirmar exclusão", type="primary", use_container_width=True):
             try:
                 for _id in ids:
-                    execute("DELETE FROM bbts WHERE id=%s", (int(_id),))
+                    execute("DELETE FROM comunicacao WHERE id=%s", (int(_id),))
                 st.toast(f"Excluídos: {ids}", icon="✅")
                 st.cache_data.clear()
-                st.session_state['bbts_open_confirm'] = False
-                st.session_state.pop('bbts_del_ids', None)
+                st.session_state['com_open_confirm'] = False
+                st.session_state.pop('com_del_ids', None)
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao excluir: {e}")
     with c2:
         if st.button("✖️ Cancelar", use_container_width=True):
-            st.session_state['bbts_open_confirm'] = False
+            st.session_state['com_open_confirm'] = False
             st.rerun()
 
 # --------------------------- ABAS: Incluir | Listar ---------------------------
@@ -164,7 +164,7 @@ with aba_incluir:
     with c1:
         sel_prefixo = st.text_input(
             "Prefixo (4)",
-            key="bbts_inc_prefixo",
+            key="com_inc_prefixo",
             max_chars=4,
             label_visibility="collapsed",
             placeholder="0000",
@@ -173,15 +173,15 @@ with aba_incluir:
     with c2:
         sel_sub = st.text_input(
             "Subordinada (2)",
-            key="bbts_inc_sub",
+            key="com_inc_sub",
             max_chars=2,
             label_visibility="collapsed",
             placeholder="00",
             on_change=_fechar_modal,
         )
     with c3:
-        if st.button("🔍", key="bbts_inc_btn_lupa", help="Buscar dependência"):
-            st.session_state['bbts_open_modal'] = True
+        if st.button("🔍", key="com_inc_btn_lupa", help="Buscar dependência"):
+            st.session_state['com_open_modal'] = True
     with c4:
         # badge do nome
         if (sel_prefixo and len(sel_prefixo.strip()) == 4) and (sel_sub and len(sel_sub.strip()) == 2):
@@ -204,20 +204,19 @@ with aba_incluir:
                     """,
                     unsafe_allow_html=True,
                 )
-    if st.session_state.get('bbts_open_modal'):
+    if st.session_state.get('com_open_modal'):
         abrir_busca_dependencia()
 
     # ===== Demais campos + botão – DENTRO do form =====
-    with st.form("bbts_form_incluir", clear_on_submit=True):
+    with st.form("form_incluir", clear_on_submit=True):
         c1b, c2b = st.columns(2)
         with c1b:
-            sgt_chamado = st.text_input("SGT Chamado", key="bbts_inc_chamado")
-            dt_chamado = st.date_input("Data do chamado", value=None, format="DD/MM/YYYY", key="bbts_inc_data_chamado")
-            data_chamado = date_to_iso(dt_chamado)
+            dt_envio = st.date_input("Data de envio", value=None, format="DD/MM/YYYY", key="com_inc_data_envio")
+            data_envio = date_to_iso(dt_envio)
         with c2b:
-            sgt_quant_ramais = st.text_input("Quantidade de ramais (num)", key="bbts_inc_qtde")
-            email_cat_bbts = st.text_input("E-mail CAT BBTS", key="bbts_inc_email")
-        descricao_os = st.text_area("Descrição da OS", key="bbts_inc_desc")
+            dt_resp = st.date_input("Data de resposta", value=None, format="DD/MM/YYYY", key="com_inc_data_resposta")
+            data_resposta = date_to_iso(dt_resp)
+        resposta = st.text_area("Resposta", key="com_inc_resposta")
         salvar = st.form_submit_button("💾 Salvar")
         if salvar:
             if not sel_prefixo or not sel_sub:
@@ -228,18 +227,13 @@ with aba_incluir:
                 else:
                     try:
                         execute(
-                            """
-                            INSERT INTO bbts (prefixo, subordinada, sgt_chamado, data_chamado, descricao_os, sgt_quant_ramais, email_cat_bbts)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s)
-                            """,
+                            "INSERT INTO comunicacao (prefixo, subordinada, data_envio, data_resposta, resposta) VALUES (%s,%s,%s,%s,%s)",
                             (
                                 sel_prefixo.strip(),
                                 sel_sub.strip(),
-                                sgt_chamado or None,
-                                data_chamado,
-                                descricao_os or None,
-                                int(sgt_quant_ramais) if str(sgt_quant_ramais).strip() else None,
-                                email_cat_bbts or None,
+                                data_envio,
+                                data_resposta,
+                                resposta or None,
                             ),
                         )
                         st.toast("Incluído com sucesso!", icon="✅")
@@ -250,22 +244,19 @@ with aba_incluir:
 # -------------------------------- LISTAR -----------------------------------
 with aba_listar:
     with st.expander("Filtros", expanded=True):
-        f_prefixo = st.text_input("Prefixo (4)", max_chars=4, key="bbts_f_prefixo")
-        f_sub = st.text_input("Subordinada (2)", max_chars=2, key="bbts_f_sub")
-        f_chamado = st.text_input("SGT Chamado contém", key="bbts_f_chamado")
+        f_prefixo = st.text_input("Prefixo (4)", max_chars=4, key="com_f_prefixo")
+        f_sub = st.text_input("Subordinada (2)", max_chars=2, key="com_f_sub")
 
     sql = (
-        "SELECT id, prefixo, subordinada, sgt_chamado, data_chamado, sgt_quant_ramais, email_cat_bbts "
-        "FROM bbts WHERE 1=1"
+        "SELECT id, prefixo, subordinada, data_envio, data_resposta, "
+        "LEFT(resposta, 120) AS resposta FROM comunicacao WHERE 1=1"
     )
     params = []
     if f_prefixo.strip():
         sql += " AND prefixo=%s"; params.append(f_prefixo.strip())
     if f_sub.strip():
         sql += " AND subordinada=%s"; params.append(f_sub.strip())
-    if f_chamado.strip():
-        sql += " AND sgt_chamado LIKE %s"; params.append(f"%{f_chamado.strip()}%")
-    sql += " ORDER BY COALESCE(data_chamado, '0001-01-01') DESC, id DESC"
+    sql += " ORDER BY COALESCE(data_envio, '0001-01-01') DESC, id DESC"
 
     rows = fetch_all(sql, tuple(params))
     df = pd.DataFrame(rows)
@@ -274,8 +265,10 @@ with aba_listar:
     if df is None or df.empty:
         st.info("Nenhum registro encontrado.")
     else:
-        if "data_chamado" in df.columns:
-            df["data_chamado"] = df["data_chamado"].apply(fmt_br)
+        if "data_envio" in df.columns:
+            df["data_envio"] = df["data_envio"].apply(fmt_br)
+        if "data_resposta" in df.columns:
+            df["data_resposta"] = df["data_resposta"].apply(fmt_br)
         df_view = df.copy()
         df_view["Excluir"] = False
         edited = st.data_editor(
@@ -300,10 +293,10 @@ with aba_listar:
         with col_del2:
             st.caption("")
         if btn_del:
-            st.session_state['bbts_del_ids'] = ids_marcados
-            st.session_state['bbts_open_confirm'] = True
+            st.session_state['com_del_ids'] = ids_marcados
+            st.session_state['com_open_confirm'] = True
             st.rerun()
 
 # abrir modal de confirmação se sinalizado
-if st.session_state.get('bbts_open_confirm'):
+if st.session_state.get('com_open_confirm'):
     abrir_confirm_exclusao()
