@@ -17,7 +17,7 @@ Create Table: CREATE TABLE `atualizacoes` (
   CONSTRAINT `fk_atualizacoes_dependencia` FOREIGN KEY (`prefixo`, `subordinada`) REFERENCES `dependencia` (`prefixo`, `subordinada`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_atualizacoes_produtos` FOREIGN KEY (`cod_produto`) REFERENCES `produtos` (`codigo`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_atualizacoes_status` FOREIGN KEY (`cod_status`) REFERENCES `status` (`codigo`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 *************************** 1. row ***************************
        Table: bbts
 Create Table: CREATE TABLE `bbts` (
@@ -34,7 +34,7 @@ Create Table: CREATE TABLE `bbts` (
   KEY `ix_bbts_chamado` (`sgt_chamado`),
   KEY `ix_bbts_data` (`data_chamado`),
   CONSTRAINT `fk_bbts_dependencia` FOREIGN KEY (`prefixo`, `subordinada`) REFERENCES `dependencia` (`prefixo`, `subordinada`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 *************************** 1. row ***************************
        Table: comunicacao
 Create Table: CREATE TABLE `comunicacao` (
@@ -72,6 +72,7 @@ Create Table: CREATE TABLE `dependencia` (
   `observacoes` text,
   `cod_status` int DEFAULT NULL,
   `lote` int DEFAULT NULL,
+  `concluido` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`prefixo`,`subordinada`),
   KEY `ix_dependencia_status` (`cod_status`),
   CONSTRAINT `fk_dependencia_status` FOREIGN KEY (`cod_status`) REFERENCES `status` (`codigo`) ON DELETE RESTRICT ON UPDATE CASCADE
@@ -91,6 +92,7 @@ Create Table: CREATE TABLE `produtos` (
 Create Table: CREATE TABLE `status` (
   `codigo` int NOT NULL,
   `descricao` varchar(100) DEFAULT NULL,
+  `finaliza_ciclo` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`codigo`),
   UNIQUE KEY `uq_status_descricao` (`descricao`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
